@@ -10,26 +10,8 @@ import argparse
 import itertools
 import math
 
-def single(args):
-    f = args.filter
-    df = pd.read_excel(args.input)
-    df.drop
-    if args.filter is not None:
-        df = df.query(args.filter)
-        print("after filted , we have {} rows".format(len(df)))
-    if args.n is not None:
-        random_rows = df.sample(n=args.n)
-    else:
-        random_rows = df.sample(frac=args.frac)
-    if len(df) == 0:
-        print("no rows after filtered")
-        return
-    print(random_rows)
-    random_rows.to_excel(args.output, index=True)
-
-def multi(args):
+def run(args):
     filtered_index_list = []
-
     if args.exclude :
         for exclude in args.exclude:
             exclude_df = pd.read_excel(exclude)
@@ -43,25 +25,36 @@ def multi(args):
         df = df.drop(index=filtered_index_list)
         print("after filterred {} index, we have {} rows".format(len(filtered_index_list),len(df)))
     filters = []
-    for m in args.m:
-        filters.append(list(f'{m}=="{e}"' for e in set(df[m])))
-
-    cartesian_filters = list(itertools.product(*filters))
-    res_list = []
-    for f in cartesian_filters:
-        f = " and ".join(f)
-        filtered_df = df.query(f)
+    if args.m:
+        for m in args.m:
+            filters.append(list(f'{m}=="{e}"' for e in set(df[m])))
+    if len(filters)==0:
         if args.n is not None:
-            random_rows = filtered_df.sample(n=args.n)
+            random_rows = df.sample(n=args.n)
         else:
-            length = len(filtered_df)
+            length = len(df)
             filtered_n = math.ceil(length*args.frac)
             if filtered_n>length:
                 filtered_n = length
-            random_rows = filtered_df.sample(n=filtered_n)
-        res_list.append(random_rows)
-    res = pd.concat(res_list)
-    res.to_excel(args.output,index=True,header=True)
+            random_rows = df.sample(n=filtered_n)
+        random_rows.to_excel(args.output, index=True)
+    else:
+        cartesian_filters = list(itertools.product(*filters))
+        res_list = []
+        for f in cartesian_filters:
+            f = " and ".join(f)
+            filtered_df = df.query(f)
+            if args.n is not None:
+                random_rows = filtered_df.sample(n=args.n)
+            else:
+                length = len(filtered_df)
+                filtered_n = math.ceil(length*args.frac)
+                if filtered_n>length:
+                    filtered_n = length
+                random_rows = filtered_df.sample(n=filtered_n)
+            res_list.append(random_rows)
+        res = pd.concat(res_list)
+        res.to_excel(args.output,index=True)
 
 
 
@@ -78,11 +71,7 @@ def main():
     args = parser.parse_args()
     if args.n is None and args.frac is None:
         parser.error("至少需要提供一个参数: --n 或 --frac")
-    if args.m and len(args.m)>0:
-        multi(args)
-    else:
-        single(args)
-
+    run(args)
 
 if __name__ == "__main__":
     main()
